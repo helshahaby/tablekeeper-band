@@ -1389,6 +1389,46 @@ def reset_rules():
     # created reservations after seed do not collide with seeded ids/references
     news = [must_book(a, "m_4", f"{FUT}T{h}:00")["reservation_id"] for h in ("12", "14", "16", "18")]
     check("res_seed" not in news, "new ids don't collide with seeded id")
+    # fixture validation: seeded reservations must obey the same rules as created ones
+    def seeded(**over):
+        fx = base_fixture()
+        res = {"id": "res_s", "reference": "SEED02", "user_id": "u_ada", "restaurant_id": "r_main",
+               "table_id": "m_2", "starts_at_local": f"{FUT}T19:00", "party_size": 2}
+        res.update(over)
+        fx["reservations"] = [res]
+        return fx
+    for ref in ["x", "lower01", "TOO-LONG-WITH-DASH", "ABCDE", "ABCDEFGHIJKLM", "ABC-12", ""]:
+        r = call("POST", "/_test/reset", json_body=seeded(reference=ref))
+        expect(r, 422, "validation_failed", f"fixture reference {ref!r} (not 6-12 A-Z0-9) 422")
+    for ref in ["ABCDEF", "ABCDEFGHIJKL", "123456"]:
+        expect(call("POST", "/_test/reset", json_body=seeded(reference=ref)), 204,
+               name=f"fixture reference {ref!r} accepted")
+    fx = seeded()
+    fx["reservations"].append(dict(fx["reservations"][0], id="res_t", reference="SEED03",
+                                   starts_at_local=f"{FUT}T19:30"))
+    soft(call("POST", "/_test/reset", json_body=fx).status == 422, "fixture with overlapping seeded bookings 422")
+    for label, over in [("party > capacity", {"party_size": 9}), ("off grid", {"starts_at_local": f"{FUT}T19:15"}),
+                        ("outside hours", {"starts_at_local": f"{FUT}T22:30"}),
+                        ("unknown user", {"user_id": "u_nobody"}), ("unknown table", {"table_id": "zz"}),
+                        ("id > 64", {"id": "r" * 65}), ("party 0", {"party_size": 0})]:
+        r = call("POST", "/_test/reset", json_body=seeded(**over))
+        soft(r.status == 422 and r.code == "validation_failed", f"fixture seeded booking {label} 422", repr(r))
+    for label, mut in [("bad timezone", lambda r: r.update(timezone="Mars/Olympus")),
+                       ("bad weekday", lambda r: r.update(opening_hours=[{"weekday": "xyz", "opens": "12:00",
+                                                                          "closes": "13:00"}])),
+                       ("closes <= opens", lambda r: r.update(opening_hours=[{"weekday": "mon", "opens": "13:00",
+                                                                              "closes": "12:00"}])),
+                       ("slot 0", lambda r: r.update(slot_minutes=0)),
+                       ("negative capacity", lambda r: r["tables"][0].update(capacity=-1)),
+                       ("table id > 64", lambda r: r["tables"][0].update(id="t" * 65))]:
+        fx = base_fixture()
+        mut(fx["restaurants"][1])
+        r = call("POST", "/_test/reset", json_body=fx)
+        soft(r.status == 422 and r.code == "validation_failed", f"fixture {label} 422", repr(r))
+    fx = base_fixture()
+    fx["users"].append(dict(fx["users"][0], id="u_" + "q" * 63))
+    soft(call("POST", "/_test/reset", json_body=fx).status == 422, "fixture user id > 64 / duplicate email 422")
+    reset()
     # long id > 64 in fixture
     fx = base_fixture()
     fx["restaurants"][1]["id"] = "r_" + "z" * 63
