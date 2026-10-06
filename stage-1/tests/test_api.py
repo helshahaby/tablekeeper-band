@@ -183,6 +183,19 @@ class TestRuntime(Base):
         self.assertEqual(status, 201)
         self.assertNotEqual(created["reservation_id"], "res_seed")
 
+    def seed(self, **overrides):
+        reservation = {"id": "res_seed", "reference": "SEED01", "user_id": "u_ada", "restaurant_id": "r_anker",
+                       "table_id": "t_2", "starts_at_local": f"{FUTURE_THU}T19:00", "party_size": 2}
+        reservation.update(overrides)
+        return reservation
+
+    def test_seed_reference_format(self):
+        for bad in ("ABCDE", "ABCDEFGHIJKLM", "ABC-12", "lower01", "x", 123456):
+            self.assertError(request("POST", "/_test/reset", fixture(reservations=[self.seed(reference=bad)])),
+                             422, "validation_failed")
+        for good in ("ABC123", "ABCDEFGHIJKL"):
+            self.reset(fixture(reservations=[self.seed(reference=good)]))
+
     def test_past_seed_is_allowed(self):
         fx = fixture(reservations=[{
             "id": "res_old", "reference": "OLD001", "user_id": "u_ada", "restaurant_id": "r_anker",

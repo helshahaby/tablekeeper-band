@@ -1,5 +1,6 @@
 """Service state and its validated construction from fixtures and exports."""
 
+import re
 from datetime import datetime, timezone
 
 from . import passwords
@@ -7,6 +8,7 @@ from .errors import invalid
 from .timeutil import WEEKDAYS, get_zone, parse_hhmm, parse_local, resolve
 
 MAX_ID = 64
+REFERENCE_RE = re.compile(r"[A-Z0-9]{6,12}")
 
 
 def _is_int(value):
@@ -140,7 +142,8 @@ class State:
         _require(_is_id(raw.get("id")), "reservation id must be a string of 1..64 characters")
         _require(raw["id"] not in self.reservations, "duplicate reservation id")
         reference = raw.get("reference")
-        _require(_is_id(reference), "reference must be a string of 1..64 characters")
+        _require(isinstance(reference, str) and REFERENCE_RE.fullmatch(reference),
+                 "reference must be 6 to 12 characters of A-Z0-9")
         _require(reference not in self.references, "duplicate reference")
         _require(raw.get("user_id") in self.users, "reservation user_id is unknown")
         restaurant = self.restaurants.get(raw.get("restaurant_id")) if isinstance(raw.get("restaurant_id"), str) else None
