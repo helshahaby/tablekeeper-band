@@ -178,6 +178,18 @@ class State:
         }
         self.references[reference] = raw["id"]
 
+    def _check_no_overlap(self):
+        """Two confirmed reservations must never share a table at overlapping times."""
+        by_table = {}
+        for rec in self.reservations.values():
+            if rec["status"] == "confirmed":
+                by_table.setdefault((rec["restaurant_id"], rec["table_id"]), []).append(rec["start"])
+        for (restaurant_id, _), starts in by_table.items():
+            duration = self.restaurants[restaurant_id].duration * 60
+            starts.sort()
+            for earlier, later in zip(starts, starts[1:]):
+                _require(earlier + duration <= later, "confirmed reservations overlap on one table")
+
     # -- fixtures --------------------------------------------------------------
 
     @classmethod
@@ -197,6 +209,7 @@ class State:
         _require(isinstance(reservations, list), "reservations must be a list")
         for raw in reservations:
             state._add_reservation(raw, allow_status=False)
+        state._check_no_overlap()
         # Hash last so an invalid fixture fails fast without paying for scrypt.
         hashes = hasher([user["password"] for user in users])
         for user, digest in zip(users, hashes):
@@ -244,6 +257,7 @@ class State:
         _require(isinstance(reservations, list), "state.reservations must be a list")
         for raw in reservations:
             state._add_reservation(raw, allow_status=True)
+        state._check_no_overlap()
         receipts = data.get("idempotency")
         _require(isinstance(receipts, list), "state.idempotency must be a list")
         for rec in receipts:

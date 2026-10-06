@@ -196,6 +196,15 @@ class TestRuntime(Base):
         for good in ("ABC123", "ABCDEFGHIJKL"):
             self.reset(fixture(reservations=[self.seed(reference=good)]))
 
+    def test_seed_overlap_rejected(self):
+        first = self.seed()
+        overlapping = self.seed(id="res_2", reference="SEED02", starts_at_local=f"{FUTURE_THU}T19:30")
+        self.assertError(request("POST", "/_test/reset", fixture(reservations=[first, overlapping])),
+                         422, "validation_failed")
+        adjacent = self.seed(id="res_2", reference="SEED02", starts_at_local=f"{FUTURE_THU}T20:30")
+        other_table = self.seed(id="res_3", reference="SEED03", table_id="t_3")
+        self.reset(fixture(reservations=[first, adjacent, other_table]))
+
     def test_past_seed_is_allowed(self):
         fx = fixture(reservations=[{
             "id": "res_old", "reference": "OLD001", "user_id": "u_ada", "restaurant_id": "r_anker",
