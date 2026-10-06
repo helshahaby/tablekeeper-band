@@ -235,6 +235,12 @@ class TestAuth(Base):
                          401, "unauthenticated")
         self.assertError(request("GET", "/reservations", token="bogus"), 401, "unauthenticated")
         self.assertError(request("POST", "/reservations", {}, key="k"), 401, "unauthenticated")
+        # 401 takes precedence over a missing or malformed body.
+        self.assertError(request("POST", "/reservations", key="k"), 401, "unauthenticated")
+        self.assertError(request("POST", "/reservations", raw="{bad", key="k"), 401, "unauthenticated")
+        self.assertError(request("POST", "/reservation-moves", key="k"), 401, "unauthenticated")
+        self.assertError(request("PATCH", "/reservations/ABCDEF"), 401, "unauthenticated")
+        self.assertError(request("POST", "/reservations/ABCDEF/cancel"), 401, "unauthenticated")
 
     def test_concurrent_logins_are_fast(self):
         started = time.time()
@@ -311,7 +317,7 @@ class TestAvailability(Base):
         for bad in ("1e9", "4.0", "%2B4", "-1", "0", "", "abc"):
             self.assertError(self.avail(restaurant_id="r_anker", date=FUTURE_THU, party_size=bad),
                              422, "validation_failed")
-        for bad in ("2026-02-30", "2026-9-24", "tomorrow"):
+        for bad in ("2026-02-30", "2026-9-24", "tomorrow", "0001-01-01", "9999-12-31", "0000-01-01"):
             self.assertError(self.avail(restaurant_id="r_anker", date=bad, party_size=2), 422, "validation_failed")
         self.assertError(self.avail(restaurant_id="nope", date=FUTURE_THU, party_size=2), 404, "not_found")
         # Unknown params are ignored.
@@ -347,7 +353,8 @@ class TestReservations(Base):
         for bad in (0, -1, 2.5, 2.0, "2", True, None):
             self.assertError(self.book(token, f"p{bad!r}", party_size=bad), 422, "validation_failed")
         for bad in (f"{FUTURE_THU}T19:00:00", f"{FUTURE_THU}T19:00+01:00", f"{FUTURE_THU}T19:00Z",
-                    f"{FUTURE_THU} 19:00", "2030-02-30T19:00", "garbage"):
+                    f"{FUTURE_THU} 19:00", "2030-02-30T19:00", "garbage", "9999-12-31T23:30",
+                    "0001-01-01T00:00"):
             self.assertError(self.book(token, f"s{bad}", starts_at_local=bad), 422, "validation_failed")
         self.assertError(self.book(token, "i", restaurant_id="nope"), 404, "not_found")
         self.assertError(self.book(token, "j", table_id="nope"), 404, "not_found")

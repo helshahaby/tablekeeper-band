@@ -10,6 +10,10 @@ _LOCAL_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}")
 _DATE_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _HHMM_RE = re.compile(r"[0-9]{2}:[0-9]{2}")
 
+# Years at the edge of datetime's range overflow once shifted by a UTC offset or
+# a reservation duration, so they are treated as invalid dates.
+MIN_YEAR, MAX_YEAR = 2, 9998
+
 _zone_cache = {}
 
 
@@ -32,18 +36,20 @@ def parse_local(value):
     if not isinstance(value, str) or not _LOCAL_RE.fullmatch(value):
         return None
     try:
-        return datetime.strptime(value, "%Y-%m-%dT%H:%M")
+        parsed = datetime.strptime(value, "%Y-%m-%dT%H:%M")
     except ValueError:
         return None
+    return parsed if MIN_YEAR <= parsed.year <= MAX_YEAR else None
 
 
 def parse_date(value):
     if not isinstance(value, str) or not _DATE_RE.fullmatch(value):
         return None
     try:
-        return date.fromisoformat(value)
+        parsed = date.fromisoformat(value)
     except ValueError:
         return None
+    return parsed if MIN_YEAR <= parsed.year <= MAX_YEAR else None
 
 
 def parse_hhmm(value):

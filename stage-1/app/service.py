@@ -139,6 +139,10 @@ class Service:
         state.tokens[token] = user_id
         return token
 
+    def authenticate(self, token):
+        with self.lock:
+            return self._user(self.state, token)
+
     @staticmethod
     def _user(state, token):
         user_id = state.tokens.get(token) if token else None

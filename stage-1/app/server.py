@@ -156,6 +156,11 @@ class Handler(BaseHTTPRequestHandler):
         def body():
             return parse_json_object(raw_body)
 
+        def authed_body():
+            # A caller without a valid token gets 401 even if the body is also bad.
+            svc.authenticate(self._token())
+            return body()
+
         if segments == ["health"]:
             require("GET", "HEAD")
             return 200, {"status": "ok"}
@@ -188,13 +193,13 @@ class Handler(BaseHTTPRequestHandler):
         if segments == ["reservations"]:
             require("GET", "HEAD", "POST")
             if method == "POST":
-                parsed = body()
+                parsed = authed_body()
                 return svc.create_reservation(self._token(), self.headers.get("Idempotency-Key"), path, parsed)
             return 200, svc.list_reservations(self._token())
         if len(segments) == 2 and segments[0] == "reservations":
             require("GET", "HEAD", "PATCH")
             if method == "PATCH":
-                parsed = body()
+                parsed = authed_body()
                 return 200, svc.patch(self._token(), segments[1], parsed)
             return 200, svc.get_reservation(self._token(), segments[1])
         if len(segments) == 3 and segments[0] == "reservations" and segments[2] == "cancel":
@@ -202,7 +207,7 @@ class Handler(BaseHTTPRequestHandler):
             return 200, svc.cancel(self._token(), segments[1])
         if segments == ["reservation-moves"]:
             require("POST")
-            parsed = body()
+            parsed = authed_body()
             return svc.moves(self._token(), self.headers.get("Idempotency-Key"), path, parsed)
         raise not_found(f"No route for {path}.")
 
