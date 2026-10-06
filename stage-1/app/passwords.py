@@ -10,6 +10,9 @@ import os
 import re
 
 N = 2 ** 13
+# Reset fixtures may seed many users inside a 10 s budget, so seeded accounts
+# use a cheaper (still per-user salted) scrypt cost. The cost is stored in each hash.
+SEED_N = 2 ** 12
 R = 8
 P = 1
 DKLEN = 32
@@ -17,10 +20,14 @@ DKLEN = 32
 _HASH_RE = re.compile(r"scrypt\$([0-9]{1,7})\$([0-9]{1,3})\$([0-9]{1,3})\$([0-9a-f]{2,128})\$([0-9a-f]{2,256})")
 
 
-def hash_password(password):
+def hash_password(password, n=N):
     salt = os.urandom(16)
-    digest = hashlib.scrypt(password.encode("utf-8", "surrogatepass"), salt=salt, n=N, r=R, p=P, dklen=DKLEN)
-    return f"scrypt${N}${R}${P}${salt.hex()}${digest.hex()}"
+    digest = hashlib.scrypt(password.encode("utf-8", "surrogatepass"), salt=salt, n=n, r=R, p=P, dklen=DKLEN)
+    return f"scrypt${n}${R}${P}${salt.hex()}${digest.hex()}"
+
+
+def hash_seed_password(password):
+    return hash_password(password, SEED_N)
 
 
 def is_valid_hash(stored):

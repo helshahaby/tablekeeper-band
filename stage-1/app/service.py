@@ -25,8 +25,8 @@ _hash_pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="scrypt")
 
 def _hash_many(plaintexts):
     if len(plaintexts) <= 1:
-        return [passwords.hash_password(p) for p in plaintexts]
-    return list(_hash_pool.map(passwords.hash_password, plaintexts))
+        return [passwords.hash_seed_password(p) for p in plaintexts]
+    return list(_hash_pool.map(passwords.hash_seed_password, plaintexts))
 
 
 def canonical(body):
