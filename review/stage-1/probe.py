@@ -1406,13 +1406,28 @@ def reset_rules():
     fx = seeded()
     fx["reservations"].append(dict(fx["reservations"][0], id="res_t", reference="SEED03",
                                    starts_at_local=f"{FUT}T19:30"))
-    soft(call("POST", "/_test/reset", json_body=fx).status == 422, "fixture with overlapping seeded bookings 422")
+    check(call("POST", "/_test/reset", json_body=fx).status == 422, "fixture with overlapping seeded bookings 422")
     for label, over in [("party > capacity", {"party_size": 9}), ("off grid", {"starts_at_local": f"{FUT}T19:15"}),
                         ("outside hours", {"starts_at_local": f"{FUT}T22:30"}),
                         ("unknown user", {"user_id": "u_nobody"}), ("unknown table", {"table_id": "zz"}),
                         ("id > 64", {"id": "r" * 65}), ("party 0", {"party_size": 0})]:
         r = call("POST", "/_test/reset", json_body=seeded(**over))
-        soft(r.status == 422 and r.code == "validation_failed", f"fixture seeded booking {label} 422", repr(r))
+        check(r.status == 422 and r.code == "validation_failed", f"fixture seeded booking {label} 422", repr(r))
+    # planner ruling: invalid fixture leaves state unchanged; past seeded bookings are fine
+    reset(seeded())
+    a = login("ada@example.com", "correct horse")
+    for label, over in [("DST gap", {"restaurant_id": "r_ber_dst", "table_id": "b_1",
+                                     "starts_at_local": "2026-03-29T02:30"}),
+                        ("unknown restaurant", {"restaurant_id": "nope"}),
+                        ("other restaurant's table", {"table_id": "o_1"}),
+                        ("bad local format", {"starts_at_local": f"{FUT}T19:00:00"})]:
+        r = call("POST", "/_test/reset", json_body=seeded(**over))
+        check(r.status == 422 and r.code == "validation_failed", f"fixture seeded booking {label} 422", repr(r))
+    g = get_res(a, "SEED02")
+    check(g.status == 200 and g.body["starts_at_local"] == f"{FUT}T19:00", "invalid resets left prior state unchanged",
+          repr(g))
+    expect(call("POST", "/_test/reset", json_body=seeded(starts_at_local=f"{PAST}T19:00")), 204,
+           name="seeded booking in the past accepted")
     for label, mut in [("bad timezone", lambda r: r.update(timezone="Mars/Olympus")),
                        ("bad weekday", lambda r: r.update(opening_hours=[{"weekday": "xyz", "opens": "12:00",
                                                                           "closes": "13:00"}])),
