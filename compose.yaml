@@ -14,6 +14,8 @@ services:
   backend:
     # Built from stage-1/ exactly as accepted; state is in memory and starts empty.
     build: ./stage-1
+    # The server runs as PID 1 and has no SIGTERM handler; SIGINT stops it at once.
+    stop_signal: SIGINT
     environment:
       PORT: "8080"
     expose:
