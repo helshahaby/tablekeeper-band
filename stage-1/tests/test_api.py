@@ -733,6 +733,19 @@ class TestMoves(Base):
         self.assertError(self.move([{"reference": ref, "starts_at_local": f"{FUTURE_THU}T19:10"}], key="g"),
                          422, "not_on_slot_grid")
 
+    def test_batch_rules_precede_item_errors(self):
+        bob = self.login("bob@example.com", "battery staple")
+        _, foreign, _ = self.book(bob, "bob", table_id="t_1", starts_at_local=f"{FUTURE_THU}T18:00")
+        self.assertError(self.move([{"reference": self.a["reference"], "starts_at_local": f"{FUTURE_THU}T19:10"},
+                                    {"reference": foreign["reference"]}], key="o1"), 404, "not_found")
+        _, ny, _ = self.book(self.token, "ny", restaurant_id="r_ny", table_id="t_1",
+                             starts_at_local=f"{next_weekday(date(2030, 1, 1), 'sun')}T01:00")
+        self.assertError(self.move([{"reference": self.a["reference"], "party_size": 99},
+                                    {"reference": ny["reference"]}], key="o2"), 422, "validation_failed")
+        request("POST", f"/reservations/{self.b['reference']}/cancel", token=self.token)
+        self.assertError(self.move([{"reference": self.a["reference"], "starts_at_local": f"{FUTURE_THU}T19:10"},
+                                    {"reference": self.b["reference"]}], key="o3"), 422, "not_on_slot_grid")
+
     def test_different_restaurants(self):
         _, ny, _ = self.book(self.token, "ny", restaurant_id="r_ny", table_id="t_1",
                              starts_at_local=f"{next_weekday(date(2030, 1, 1), 'sun')}T01:00")

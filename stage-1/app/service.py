@@ -421,15 +421,13 @@ class Service:
             seen.add(item["reference"])
         for item in moves:
             _check_string_fields(item, ("table_id", "starts_at_local"))
-        restaurant_id = None
-        planned = []
-        for item in moves:
-            rec = self._owned(state, user_id, item["reference"])
-            if restaurant_id is None:
-                restaurant_id = rec["restaurant_id"]
-            elif rec["restaurant_id"] != restaurant_id:
-                raise invalid("all moved reservations must belong to the same restaurant")
-            planned.append((rec, self._amendment(state, rec, item)))
+        # Batch-wide rules first: every reference must be visible (404), then all
+        # bookings must share one restaurant (422); only then per-item checks.
+        records = [self._owned(state, user_id, item["reference"]) for item in moves]
+        restaurant_id = records[0]["restaurant_id"]
+        if any(rec["restaurant_id"] != restaurant_id for rec in records):
+            raise invalid("all moved reservations must belong to the same restaurant")
+        planned = [(rec, self._amendment(state, rec, item)) for rec, item in zip(records, moves)]
         restaurant = state.restaurants[restaurant_id]
         duration = restaurant.duration * 60
         listed = {rec["id"] for rec, _ in planned}
