@@ -1,0 +1,77 @@
+# Local demo: the accepted Stage 1 backend plus the later Lovable frontend.
+#
+#   docker compose up -d --build --wait     # build and start both, wait until healthy
+#   docker compose run --rm demo-setup      # load demo restaurants and users (explicit, never automatic)
+#   open http://127.0.0.1:3000/
+#   docker compose down                     # stop both (backend reservations are lost)
+#
+# Only the frontend is published. The backend is reachable from the host only through the
+# frontend's /backend proxy, which refuses /_test/*.
+
+name: tablekeeper
+
+services:
+  backend:
+    # Built from stage-1/ exactly as accepted; state is in memory and starts empty.
+    build: ./stage-1
+    environment:
+      PORT: "8080"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  frontend:
+    build: ./demo/frontend
+    environment:
+      # /backend/* is forwarded here with the prefix stripped (src/lib/backend-proxy.server.ts).
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # PostgreSQL inside the frontend image, used only by the unlinked staff/factory pages.
+      - frontend-db:/var/lib/postgresql/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      start_period: 20s
+      retries: 10
+
+  # One-off: replaces all backend state with demo-backend/fixture.json via POST /_test/reset.
+  # Refuses if reservations exist; pass --yes to wipe them.
+  demo-setup:
+    image: node:22-bookworm-slim
+    profiles: ["tools"]
+    entrypoint: ["node", "/demo/setup.mjs"]
+    environment:
+      TABLEKEEPER_URL: http://backend:8080
+    volumes:
+      - ./demo/frontend/scripts/demo-backend:/demo:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # One-off: books, tries an overlapping booking as another user, re-lists, and checks
+  # that /backend/_test/* is refused, all through the frontend proxy.
+  demo-check:
+    image: node:22-bookworm-slim
+    profiles: ["tools"]
+    entrypoint: ["node", "/demo/check.mjs"]
+    environment:
+      FRONTEND_URL: http://frontend:3000
+    volumes:
+      - ./demo/frontend/scripts/demo-backend:/demo:ro
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  frontend-db:

@@ -1,6 +1,7 @@
 // Local demo setup only: replaces ALL backend state with fixture.json via the backend's
 // documented POST /_test/reset. Talks to the backend directly, never through the
-// frontend's /backend proxy (which refuses /_test/*), and only to a loopback address.
+// frontend's /backend proxy (which refuses /_test/*), and only to a loopback address or
+// the `backend` service on the private Docker Compose network.
 //
 // Usage: node scripts/demo-backend/setup.mjs [--yes]
 //   TABLEKEEPER_URL  backend base URL (default http://127.0.0.1:8080)
@@ -8,7 +9,7 @@ import { readFile } from "node:fs/promises";
 
 const base = process.env.TABLEKEEPER_URL ?? "http://127.0.0.1:8080";
 const host = new URL(base).hostname;
-if (!["127.0.0.1", "localhost", "[::1]"].includes(host)) {
+if (!["127.0.0.1", "localhost", "[::1]", "backend"].includes(host)) {
   console.error(`Refusing to reset non-local backend ${base}.`);
   process.exit(1);
 }
