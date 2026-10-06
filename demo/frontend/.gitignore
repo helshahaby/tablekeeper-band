@@ -31,3 +31,6 @@ dist-ssr
 *.sln
 *.sw?
 .data/
+
+# Local environment (see .env.example)
+.env

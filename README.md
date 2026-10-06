@@ -79,6 +79,9 @@ docker compose down
 Demo logins: `ada@demo.test` / `demo-password` and `bob@demo.test` / `demo-password`. You
 can also sign up a new account in the frontend.
 
+No Lovable Cloud or Supabase credentials are needed. `demo/frontend/.env.example` lists the
+unused variables left over from the Lovable editor, with placeholder values.
+
 How it fits together:
 
 - **backend** is built from `stage-1/` and listens on port 8080 inside the Compose network.
