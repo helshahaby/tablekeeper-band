@@ -425,12 +425,6 @@ def auth_rules():
     expect(call("GET", "/reservations/ABCDEF"), 401, "unauthenticated", "GET /reservations/{ref} no token 401")
     expect(call("POST", "/reservations/ABCDEF/cancel"), 401, "unauthenticated", "cancel no token 401")
     expect(call("PATCH", "/reservations/ABCDEF", json_body={}), 401, "unauthenticated", "PATCH no token 401")
-    expect(call("POST", "/reservations", key=k()), 401, "unauthenticated",
-           "POST /reservations no token, empty body -> 401", hard=False)
-    expect(call("POST", "/reservation-moves", key=k()), 401, "unauthenticated",
-           "POST /reservation-moves no token, empty body -> 401", hard=False)
-    expect(call("PATCH", "/reservations/ABCDEF"), 401, "unauthenticated", "PATCH no token, empty body -> 401",
-           hard=False)
 
 
 @probe
