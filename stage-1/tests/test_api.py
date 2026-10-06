@@ -205,6 +205,17 @@ class TestRuntime(Base):
         other_table = self.seed(id="res_3", reference="SEED03", table_id="t_3")
         self.reset(fixture(reservations=[first, adjacent, other_table]))
 
+    def test_seed_follows_booking_rules(self):
+        for bad in (self.seed(party_size=9), self.seed(table_id="t_1", party_size=3),
+                    self.seed(starts_at_local=f"{FUTURE_THU}T19:15"),
+                    self.seed(starts_at_local=f"{FUTURE_THU}T22:30"),
+                    self.seed(starts_at_local=f"{FUTURE_THU}T17:30"),
+                    self.seed(starts_at_local=f"{FUTURE_THU + timedelta(days=2)}T19:00"),
+                    self.seed(restaurant_id="r_berlin_night", table_id="t_1", starts_at_local="2026-03-29T02:30")):
+            self.assertError(request("POST", "/_test/reset", fixture(reservations=[bad])), 422, "validation_failed")
+        # Valid seeds still load, including past ones inside the cutoff.
+        self.reset(fixture(reservations=[self.seed(starts_at_local=f"{PAST_THU}T21:30", party_size=4)]))
+
     def test_past_seed_is_allowed(self):
         fx = fixture(reservations=[{
             "id": "res_old", "reference": "OLD001", "user_id": "u_ada", "restaurant_id": "r_anker",

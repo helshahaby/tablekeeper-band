@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from . import passwords
 from .errors import ApiError, invalid, malformed, not_found, unauthenticated
-from .state import State, now_utc_string, valid_email
+from .state import State, now_utc_string, slot_start, valid_email
 from .timeutil import (
     at_minutes, format_instant, local_string, parse_date, parse_local, resolve, resolve_lenient,
     weekday_name,
@@ -243,27 +243,6 @@ class Service:
         }
 
     @staticmethod
-    def _slot_start(restaurant, local):
-        """Validate a booking start against DST, opening hours and the grid; return the epoch."""
-        naive = parse_local(local)
-        if naive is None:
-            raise invalid("starts_at_local must be a bare local YYYY-MM-DDTHH:MM")
-        start = resolve(naive, restaurant.zone)
-        if start is None:
-            raise ApiError(422, "invalid_local_time", "That local time does not exist in the restaurant's timezone.")
-        minute = naive.hour * 60 + naive.minute
-        containing = [(o, c) for o, c in restaurant.hours.get(weekday_name(naive.date()), []) if o <= minute < c]
-        if not containing:
-            raise ApiError(422, "outside_opening_hours", "The restaurant is not open at that time.")
-        on_grid = [(o, c) for o, c in containing if (minute - o) % restaurant.slot == 0]
-        if not on_grid:
-            raise ApiError(422, "not_on_slot_grid", "starts_at_local is not on the slot grid.")
-        end = start + restaurant.duration * 60
-        if not any(end <= resolve_lenient(at_minutes(naive.date(), c), restaurant.zone) for _, c in on_grid):
-            raise ApiError(422, "outside_opening_hours", "The reservation would end after closing time.")
-        return start
-
-    @staticmethod
     def _check_cutoff(restaurant, rec):
         if time.time() >= rec["start"] - restaurant.cutoff * 60:
             raise ApiError(409, "cutoff_passed", "The cancellation/amendment cutoff has passed.")
@@ -272,7 +251,7 @@ class Service:
         """Validate a complete booking (minus overlap); return (table_id, local, start, party)."""
         if table_id not in restaurant.tables:
             raise not_found("No such table at this restaurant.")
-        start = self._slot_start(restaurant, local)
+        start = slot_start(restaurant, local)
         if party > restaurant.tables[table_id]["capacity"]:
             raise ApiError(422, "party_exceeds_capacity", "party_size exceeds the table's capacity.")
         return {"table_id": table_id, "starts_at_local": local, "start": start, "party_size": party}

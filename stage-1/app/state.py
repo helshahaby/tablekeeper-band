@@ -4,8 +4,10 @@ import re
 from datetime import datetime, timezone
 
 from . import passwords
-from .errors import invalid
-from .timeutil import WEEKDAYS, get_zone, parse_hhmm, parse_local, resolve
+from .errors import ApiError, invalid
+from .timeutil import (
+    WEEKDAYS, at_minutes, get_zone, parse_hhmm, parse_local, resolve, resolve_lenient, weekday_name,
+)
 
 MAX_ID = 64
 REFERENCE_RE = re.compile(r"[A-Z0-9]{6,12}")
@@ -47,6 +49,27 @@ class Restaurant:
             )
         self.tables = {t["id"]: t for t in public["tables"]}
         self.table_order = [t["id"] for t in public["tables"]]
+
+
+def slot_start(restaurant, local):
+    """Validate a booking start against DST, opening hours and the grid; return the epoch."""
+    naive = parse_local(local)
+    if naive is None:
+        raise invalid("starts_at_local must be a bare local YYYY-MM-DDTHH:MM")
+    start = resolve(naive, restaurant.zone)
+    if start is None:
+        raise ApiError(422, "invalid_local_time", "That local time does not exist in the restaurant's timezone.")
+    minute = naive.hour * 60 + naive.minute
+    containing = [(o, c) for o, c in restaurant.hours.get(weekday_name(naive.date()), []) if o <= minute < c]
+    if not containing:
+        raise ApiError(422, "outside_opening_hours", "The restaurant is not open at that time.")
+    on_grid = [(o, c) for o, c in containing if (minute - o) % restaurant.slot == 0]
+    if not on_grid:
+        raise ApiError(422, "not_on_slot_grid", "starts_at_local is not on the slot grid.")
+    end = start + restaurant.duration * 60
+    if not any(end <= resolve_lenient(at_minutes(naive.date(), c), restaurant.zone) for _, c in on_grid):
+        raise ApiError(422, "outside_opening_hours", "The reservation would end after closing time.")
+    return start
 
 
 def parse_restaurant(raw):
@@ -156,6 +179,15 @@ class State:
         _require(naive is not None, "starts_at_local must be YYYY-MM-DDTHH:MM")
         start = resolve(naive, restaurant.zone)
         _require(start is not None, "starts_at_local does not exist in the restaurant timezone")
+        if not allow_status:
+            # Seeded bookings follow the same rules as POST /reservations,
+            # except the cutoff and the past-date allowance.
+            try:
+                slot_start(restaurant, raw["starts_at_local"])
+            except ApiError as err:
+                raise invalid(f"seeded reservation {raw['id']}: {err.message}")
+            _require(party <= restaurant.tables[raw["table_id"]]["capacity"],
+                     "seeded reservation party_size exceeds the table's capacity")
         status = "confirmed"
         if allow_status:
             status = raw.get("status")
