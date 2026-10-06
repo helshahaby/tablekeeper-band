@@ -1,0 +1,7 @@
+# Python dependencies for the offline verification harness (scripts/e2e, smoke tests).
+# Install with: pip install -r harness/requirements.txt
+# Only needed to RUN the tests against a built container/server — the service
+# itself has no Python dependency.
+
+requests>=2.31,<3
+playwright>=1.40,<2
