@@ -1216,6 +1216,17 @@ def moves_rules():
     e6 = mv(a, [{"reference": B1["reference"], "party_size": 1},
                 {"reference": P["reference"], "party_size": 1}])
     expect(e6, 409, "cutoff_passed", "cutoff on item 2 when item 1 valid")
+    # planner ruling: resolve all references (404), then single restaurant (422), then per-item checks
+    expect(mv(a, [{"reference": B1["reference"], "starts_at_local": f"{FUT}T19:15"}, {"reference": B3["reference"]}]),
+           404, "not_found", "ruling: other owner's ref (item 2) beats item 1 grid error")
+    expect(mv(a, [{"reference": P["reference"], "party_size": 1}, {"reference": "NOSUCH9"}]),
+           404, "not_found", "ruling: unknown ref (item 2) beats item 1 cutoff")
+    expect(mv(a, [{"reference": B1["reference"], "starts_at_local": f"{FUT}T19:15"}, {"reference": O["reference"]}]),
+           422, "validation_failed", "ruling: cross-restaurant beats item 1 grid error")
+    expect(mv(a, [{"reference": O["reference"]}, {"reference": B1["reference"]}, {"reference": "NOSUCH9"}]),
+           404, "not_found", "ruling: unknown ref beats cross-restaurant")
+    expect(mv(a, [{"reference": B1["reference"], "table_id": "m_3"}, {"reference": P["reference"]}]),
+           409, "cutoff_passed", "ruling: per-item cutoff beats occupancy conflict")
     e7 = mv(a, [{"reference": B1["reference"], "starts_at_local": f"{FUT}T22:00"}])
     expect(e7, 422, "outside_opening_hours", "move outside hours 422")
     e8 = mv(a, [{"reference": B1["reference"], "party_size": 0}])
