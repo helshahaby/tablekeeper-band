@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { listRestaurants } from "@/lib/api.functions";
+import { backend, describeError } from "@/lib/backend";
 import { fmtTime } from "@/lib/time";
 
 export const Route = createFileRoute("/")({
@@ -19,9 +19,9 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["restaurants"],
-    queryFn: () => listRestaurants(),
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["backend", "restaurants"],
+    queryFn: () => backend.listRestaurants(),
   });
 
   return (
@@ -41,24 +41,26 @@ function Index() {
 
       {isLoading ? (
         <p className="font-mono text-sm text-muted-foreground">Loading restaurants…</p>
+      ) : error ? (
+        <p role="alert" className="text-sm text-destructive">
+          Could not load restaurants: {describeError(error)}
+        </p>
+      ) : data?.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          The backend has no restaurants yet. Seed it with <code>scripts/demo-backend-setup.sh</code>.
+        </p>
       ) : (
         <div className="grid gap-px overflow-hidden border bg-border md:grid-cols-2">
           {data?.map((r) => (
             <Link
               key={r.id}
               to="/r/$slug"
-              params={{ slug: r.slug }}
+              params={{ slug: r.id }}
               className="group bg-card p-6 transition-colors hover:bg-accent"
             >
-              <div className="flex items-baseline justify-between">
-                <h2 className="text-2xl font-bold group-hover:text-primary">{r.name}</h2>
-                <span className="font-mono text-xs text-muted-foreground">{r.city}</span>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">{r.cuisine}</p>
-              <p className="mt-4 text-sm">{r.description}</p>
+              <h2 className="text-2xl font-bold group-hover:text-primary">{r.name}</h2>
               <p className="mt-4 font-mono text-xs text-muted-foreground">
-                {r.opens_at.slice(0, 5)}–{r.closes_at.slice(0, 5)} local · {r.timezone} · now{" "}
-                {fmtTime(new Date().toISOString(), r.timezone)}
+                {r.timezone} · now {fmtTime(new Date().toISOString(), r.timezone)}
               </p>
             </Link>
           ))}

@@ -1,0 +1,52 @@
+{
+  "users": [
+    { "id": "u_ada", "email": "ada@demo.test", "password": "demo-password", "display_name": "Ada" },
+    { "id": "u_bob", "email": "bob@demo.test", "password": "demo-password", "display_name": "Bob" }
+  ],
+  "restaurants": [
+    {
+      "id": "zum-anker",
+      "name": "Zum Anker",
+      "timezone": "Europe/Berlin",
+      "slot_minutes": 30,
+      "reservation_duration_minutes": 90,
+      "cancellation_cutoff_minutes": 120,
+      "opening_hours": [
+        { "weekday": "mon", "opens": "12:00", "closes": "23:00" },
+        { "weekday": "tue", "opens": "12:00", "closes": "23:00" },
+        { "weekday": "wed", "opens": "12:00", "closes": "23:00" },
+        { "weekday": "thu", "opens": "12:00", "closes": "23:00" },
+        { "weekday": "fri", "opens": "12:00", "closes": "23:30" },
+        { "weekday": "sat", "opens": "12:00", "closes": "23:30" },
+        { "weekday": "sun", "opens": "12:00", "closes": "22:00" }
+      ],
+      "tables": [
+        { "id": "t_1", "label": "1", "capacity": 2 },
+        { "id": "t_2", "label": "2", "capacity": 4 },
+        { "id": "t_3", "label": "3", "capacity": 6 }
+      ]
+    },
+    {
+      "id": "harbor-grill",
+      "name": "Harbor Grill",
+      "timezone": "America/New_York",
+      "slot_minutes": 30,
+      "reservation_duration_minutes": 120,
+      "cancellation_cutoff_minutes": 60,
+      "opening_hours": [
+        { "weekday": "mon", "opens": "17:00", "closes": "22:00" },
+        { "weekday": "tue", "opens": "17:00", "closes": "22:00" },
+        { "weekday": "wed", "opens": "17:00", "closes": "22:00" },
+        { "weekday": "thu", "opens": "17:00", "closes": "22:00" },
+        { "weekday": "fri", "opens": "17:00", "closes": "23:00" },
+        { "weekday": "sat", "opens": "17:00", "closes": "23:00" },
+        { "weekday": "sun", "opens": "17:00", "closes": "22:00" }
+      ],
+      "tables": [
+        { "id": "t_a", "label": "A", "capacity": 2 },
+        { "id": "t_b", "label": "B", "capacity": 4 }
+      ]
+    }
+  ],
+  "reservations": []
+}

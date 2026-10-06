@@ -14,8 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { useQueryClient } from "@tanstack/react-query";
-import { signOutFn } from "@/lib/api.functions";
-import { useAuth } from "@/hooks/useAuth";
+import { signOut, useSession } from "@/lib/backend";
 
 function NotFoundComponent() {
   return (
@@ -99,7 +98,7 @@ function RootShell({ children }: { children: ReactNode }) {
 }
 
 function Header() {
-  const { user } = useAuth();
+  const session = useSession();
   const qc = useQueryClient();
   const link = "font-mono text-xs uppercase tracking-widest text-muted-foreground hover:text-foreground";
   const active = { className: "!text-primary" };
@@ -118,20 +117,20 @@ function Header() {
           <Link to="/bookings" className={link} activeProps={active}>
             My bookings
           </Link>
-          <Link to="/staff" className={link} activeProps={active}>
-            Staff
-          </Link>
-          <Link to="/factory" className={link} activeProps={active}>
-            Factory
-          </Link>
         </nav>
-        {user ? (
-          <button className={link} onClick={async () => {
-              await signOutFn();
-              qc.clear();
-            }}>
-            Sign out
-          </button>
+        {session ? (
+          <div className="flex items-center gap-4">
+            <span className="font-mono text-xs text-muted-foreground">{session.displayName}</span>
+            <button
+              className={link}
+              onClick={() => {
+                signOut();
+                qc.clear();
+              }}
+            >
+              Sign out
+            </button>
+          </div>
         ) : (
           <Link to="/auth" className={link}>
             Sign in
